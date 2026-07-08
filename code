@@ -1,0 +1,124 @@
+"""
+Expense Tracker
+----------------
+A command-line app that lets you log expenses, view them by category,
+and see how much you've spent in total. Data is saved to a JSON file
+so it's still there next time you run the program.
+
+Concepts used: classes, file I/O (reading/writing JSON), dictionaries,
+loops, error handling.
+"""
+
+import json
+import os
+from datetime import date
+
+DATA_FILE = "expenses.json"
+
+
+class ExpenseTracker:
+    def __init__(self, data_file=DATA_FILE):
+        self.data_file = data_file
+        self.expenses = self._load()
+
+    def _load(self):
+        """Load expenses from disk. If the file doesn't exist yet, start fresh."""
+        if not os.path.exists(self.data_file):
+            return []
+        try:
+            with open(self.data_file, "r") as f:
+                return json.load(f)
+        except (json.JSONDecodeError, FileNotFoundError):
+            # File exists but is empty/corrupted -> start with a clean list
+            return []
+
+    def _save(self):
+        with open(self.data_file, "w") as f:
+            json.dump(self.expenses, f, indent=2)
+
+    def add_expense(self, amount, category, note=""):
+        entry = {
+            "amount": amount,
+            "category": category,
+            "note": note,
+            "date": str(date.today()),
+        }
+        self.expenses.append(entry)
+        self._save()
+        print(f"Added ${amount:.2f} to '{category}'.")
+
+    def total_spent(self):
+        return sum(e["amount"] for e in self.expenses)
+
+    def spent_by_category(self):
+        totals = {}
+        for e in self.expenses:
+            totals[e["category"]] = totals.get(e["category"], 0) + e["amount"]
+        return totals
+
+    def list_expenses(self):
+        if not self.expenses:
+            print("No expenses recorded yet.")
+            return
+        for i, e in enumerate(self.expenses, start=1):
+            note = f" ({e['note']})" if e["note"] else ""
+            print(f"{i}. [{e['date']}] {e['category']}: ${e['amount']:.2f}{note}")
+
+
+def get_float_input(prompt):
+    """Keep asking until the user enters a valid positive number."""
+    while True:
+        try:
+            value = float(input(prompt))
+            if value <= 0:
+                print("Amount must be greater than 0.")
+                continue
+            return value
+        except ValueError:
+            print("Please enter a valid number (e.g. 12.50).")
+
+
+def main():
+    tracker = ExpenseTracker()
+    menu = """
+--- Expense Tracker ---
+1. Add expense
+2. View all expenses
+3. View totals by category
+4. View grand total
+5. Quit
+"""
+
+    while True:
+        print(menu)
+        choice = input("Choose an option (1-5): ").strip()
+
+        if choice == "1":
+            amount = get_float_input("Amount: $")
+            category = input("Category (e.g. Food, Rent, Fun): ").strip().title()
+            note = input("Note (optional): ").strip()
+            tracker.add_expense(amount, category, note)
+
+        elif choice == "2":
+            tracker.list_expenses()
+
+        elif choice == "3":
+            totals = tracker.spent_by_category()
+            if not totals:
+                print("No expenses yet.")
+            for category, total in totals.items():
+                print(f"{category}: ${total:.2f}")
+
+        elif choice == "4":
+            print(f"Total spent: ${tracker.total_spent():.2f}")
+
+        elif choice == "5":
+            print("Goodbye!")
+            break
+
+        else:
+            print("Invalid option. Please choose 1-5.")
+
+
+if __name__ == "__main__":
+    main()
